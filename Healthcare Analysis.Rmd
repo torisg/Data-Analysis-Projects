@@ -1,0 +1,214 @@
+---
+title: "Healthcare"
+author: "Tori Green"
+date: "11/27/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(readxl)
+hospital1 <- read_excel("~/Desktop/Simplilearn/Data Science with R/1555054100_hospitalcosts (1).xlsx")
+```
+
+
+#View the structure of the dataset
+```{r}
+str(hospital1)
+```
+
+#View the first few rows of dataset
+```{r}
+head(hospital1)
+```
+
+#Descriptive statistics of each variable.
+```{r}
+summary(hospital1)
+```
+
+
+```{r}
+library(psych)
+describe(hospital1)
+```
+
+# 1.1 Mean total hospital discharge costs by age
+```{r}
+library(tidyverse)
+data2 <-hospital1  %>%
+    group_by(AGE) %>%
+    summarise(
+        n = n(),
+        mean_tc = mean(TOTCHG, na.rm=T))
+print(data2)
+```
+
+
+
+#Graph 1.1 Total Costs (Mean Value) By Age of Patient
+```{r}
+library(ggplot2)
+ggplot(data = data2, aes(x=AGE, y= mean_tc)) +geom_bar(stat = "identity", position="dodge") + scale_y_continuous(limits = c(0,12000)) +coord_flip()
+```
+
+#1.2 Median total hospital discharge costs by age
+```{r}
+data1 <-hospital1  %>%
+    group_by(AGE) %>%
+    summarise(
+        n = n(),
+        med_tc = median(TOTCHG, na.rm=T))
+print(data1)
+```
+
+#Graph 1.2 Total Costs (Median Value) By Age of Patient
+```{r}
+library(ggplot2)
+ggplot(data = data1, aes(x=AGE, y= med_tc)) +geom_bar(stat = "identity", position="dodge") + scale_y_continuous(limits = c(0,12000)) +coord_flip()
+```
+
+#1.3 Total Costs (Total Sum) By Age of Patient
+```{r}
+data3 <-hospital1  %>%
+    group_by(AGE) %>%
+    summarise(
+        n = n(),
+        sum_tc = sum(TOTCHG, na.rm=T))
+print(data3)
+```
+
+#Graph 1.3 Total Costs (Total Sum) By Age of Patient
+```{r}
+library(ggplot2)
+ggplot(data = data3, aes(x=AGE, y= sum_tc)) +geom_bar(stat = "identity", position="dodge") + scale_y_continuous(limits = c(0,680000)) +coord_flip()
+```
+# #2
+
+#2 Diagnosis-related group that has maximum average total hospital cost
+```{r}
+totdata1 <-hospital1  %>%
+    group_by(APRDRG) %>%
+    summarise(
+        n = n(),
+        mean_tcexp = mean(TOTCHG, na.rm=T))
+# Sort by mean_tcexp
+data.frame(totdata1)
+totdata1[order(-totdata1$mean_tcexp),]
+```
+
+
+#2.2 Diagnosis-related group that has maximum hospitalization
+```{r}
+losdata1 <-hospital1  %>%
+    group_by(APRDRG) %>%
+    summarise(
+        n = n(),
+        mean_los = mean(LOS, na.rm=T))
+# Sort by mean_los
+data.frame(losdata1)
+losdata1[order(-losdata1$mean_los),]
+```
+# #3
+
+#3.1
+#Create the scatter plot with `RACE` on the x-axis and `TOTCHG` on the y-axis
+#Add a regression linew ith the form `abline(lm(y ~ x))`
+```{r}
+plot(hospital1$RACE, hospital1$TOTCHG)
+abline (lm(hospital1$TOTCHG ~ hospital1$RACE))
+```
+
+#3.2 Calculate the correlation between RACE AND TOTCHG
+```{r}
+cor(hospital1$TOTCHG, hospital1$RACE)
+```
+
+
+#3.3 Linear regression modeling for race and total charge
+```{r}
+lrRACE <-lm(TOTCHG ~ RACE, data=hospital1)
+summary(lrRACE)
+```
+# #4
+
+#4.1 Determine the correlation among each of the variables.
+```{r}
+cor_data <- hospital1[,1:length(hospital1)]
+round(cor(cor_data),2)
+
+```
+
+
+#4.2 Multiple Regression with total costs as the dependent variable and Age + Gender as the independent variables
+```{r}
+lr4 <-lm(TOTCHG ~ AGE + FEMALE, data=hospital1)
+summary(lr4)
+```
+
+
+#Table 4.1 Mean of total charges subset by age and gender
+```{r}
+data4 <-hospital1  %>%
+    group_by(AGE,FEMALE) %>%
+    summarise(
+        n = n(),
+        mean_agegen = mean(TOTCHG, na.rm=T))
+print(data4)
+```
+
+#Graph 4.1 Mean of total charges subset by age and gender 
+```{r}
+library(ggplot2)
+ggplot(data = data4, aes(x=AGE, y= mean_agegen, fill = FEMALE)) +geom_bar(stat = "identity", position="dodge") + scale_y_continuous(limits = c(0,12000)) +coord_flip()
+```
+# #5
+
+
+#5 Multiple linear regression with age, gender, and race as the independent/explanatory variables and length of stay as the dependent/response variable.
+```{r}
+model <- lm(LOS ~ AGE + FEMALE + RACE, data = hospital1)
+summary(model)
+```
+# #6
+
+#Model 6a. Multiple Regression Analysis with total charge as the dependent/response variable and the remaining variables as the independent or explanatory variables
+```{r}
+model6a <- lm(TOTCHG ~ AGE + FEMALE + RACE + LOS + APRDRG, data = hospital1)
+summary(model6a)
+```
+
+#Figure 6.1 Relative Importance of Explanatory Variables
+```{r}
+library(relaimpo)
+hospri = calc.relimp(model6a)
+print(hospri)
+```
+#Graph 6.1 for Figure 6.1
+```{r}
+barplot(hospri$lmg, ylab="Relative Importance", xlab="Variable", main = "Relative Importance of Explanatory Variables")
+```
+
+
+#6 Determine which variable mainly affects total costs.
+#Figure 6.2 Relative Importance of Explanatory Variables (Total sums to 100)
+```{r}
+hospri2 = calc.relimp(model6a, rela = TRUE)
+print(hospri2)
+
+```
+
+#Graph 6.2 for Figure 6.2
+```{r}
+barplot(hospri2$lmg, ylab="Relative Importance", xlab="Variable", main = "Relative Importance of Explanatory Variables")
+```
+
+
+
+
