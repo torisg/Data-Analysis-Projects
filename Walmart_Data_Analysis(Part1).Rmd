@@ -1,0 +1,248 @@
+---
+title: "Retail Analysis with Walmart Data"
+author: "Tori Green"
+date: "2/19/2020"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+
+```
+
+
+# Descriptive Sales Data Analysis
+
+```{r cars}
+#Importing the dataset
+library(dplyr)
+wmart_data_tbl <-read.csv("~/Desktop/Simplilearn/Simplilearn_Projects/Walmart_Store_sales.csv")
+
+#Walmart_Store_sales <- read_csv("Walmart_Store_sales.csv", +col_types = cols(Date = col_date(format = #"%d-%m-%Y")))
+
+class(wmart_data_tbl$Date)
+
+#View the structure and summary of the data
+str(wmart_data_tbl)
+
+#Convert Holiday_Flag to factor
+wmart_data_tbl$Holiday_Flag = as.factor(wmart_data_tbl$Holiday_Flag)
+
+summary(wmart_data_tbl)
+
+library(skimr)      #used for summary of all variables in data set
+
+skim(wmart_data_tbl)
+
+#Missing values for each column
+wmart_mv <- wmart_data_tbl %>%
+    summarise_all(~sum(is.na(.)))
+
+wmart_mv
+
+```
+```{r}
+library(psych)
+describe(wmart_data_tbl)
+```
+
+
+## Basic Stats Analysis
+
+```{r pressure, echo=FALSE}
+#Basic Stats Analysis 
+#library(dplyr)
+library(magrittr)
+
+
+#Which store has the maximum standard deviation?
+max_stdev_tbl <-wmart_data_tbl %>%
+    select(Store, Weekly_Sales)%>%
+    group_by(Store)%>%
+    summarise(Stand_Dev = sd(Weekly_Sales)) %>%
+    arrange(desc(Stand_Dev))
+    
+max_stdev_tbl
+    
+#Calculate coefficient of variation for Weekly_Sales
+library(goeveg)
+Coe_var_tbl <- wmart_data_tbl %>%
+    select(Store, Weekly_Sales)%>%
+    group_by(Store)%>%
+    summarise(Coe_Var = cv(Weekly_Sales)) %>%
+    arrange(desc(Coe_Var))
+
+Coe_var_tbl
+```
+
+
+# Holiday vs. Non-holiday Sales
+
+```{r}
+#The mean sales holiday vs non-holiday
+mean_holi_sales_tbl <- wmart_data_tbl %>%
+    select(Holiday_Flag, Weekly_Sales)%>%
+    group_by(Holiday_Flag) %>%
+    summarise(mean_holiday = mean(Weekly_Sales)) %>%
+    ungroup
+
+mean_holi_sales_tbl
+
+#Select rows that represent weeks that are special holidays =1 and find the sum
+sum_holiday_sales_tbl <- wmart_data_tbl %>%
+    select(Date, Weekly_Sales, Holiday_Flag) %>%
+    filter(Holiday_Flag == 1) %>%
+    group_by(Date) %>%
+    summarise(Holiday_Sales = sum(Weekly_Sales)) %>%
+    arrange(desc(Holiday_Sales)) %>%
+    mutate(Holiday_Sales = as.numeric(Holiday_Sales) %>% scales::number(big.mark = ",")) %>%
+    ungroup()
+
+sum_holiday_sales_tbl 
+```
+
+# Total Sales (Revenue Generated) by Store
+
+```{r}
+#Which store has the maximum sales?
+max_storesales_tbl <- wmart_data_tbl %>%
+    select(Store, Weekly_Sales) %>%
+    group_by(Store) %>%
+    summarise(Store_Sales=sum(Weekly_Sales)) %>% 
+    arrange(desc(Store_Sales)) %>%
+    
+    #Convert revenue to dollar format
+    mutate(Store_Sales = scales::number(Store_Sales, big.mark = ","))%>%
+    #mutate(Store_Sales = scales::dollar(Store_Sales)) %>%
+    ungroup()
+
+max_storesales_tbl
+
+library(ggplot2)
+
+wmart_data_tbl %>%
+  #set up x,y, fill
+  ggplot(aes(x = Store, y = Weekly_Sales)) +
+  geom_col(fill = "#2c3e50")
+  scale_y_continuous(labels = scales::number)
+  geom_histogram()
+
+```
+
+# Quarterly View of Total Sales
+
+```{r}
+
+#Quarterly growth rate by store
+library(scales)
+
+library(lubridate)
+
+#Total sales by Quarter
+qtr_year_tbl <- wmart_data_tbl %>%
+    select(Date, Weekly_Sales) %>%
+    mutate(Date = dmy(Date)) %>%
+    mutate(Quarter_Year = floor_date(Date, unit = "quarter"))%>% #create new column
+    group_by(Quarter_Year)%>%
+    summarize(Qtr_Sales = sum(Weekly_Sales)) %>%
+    arrange(desc(Qtr_Sales)) %>%
+    #Insert commas into Qtr_Sales amount
+    mutate(Qtr_Sales = scales::number(Qtr_Sales, big.mark = ","))%>%
+    ungroup()
+
+
+qtr_year_tbl 
+    
+#?floor_date
+```
+
+
+```{r}
+#Time Line of Per Quarter Sales
+
+#separate Quarter column into different columns
+quarteryear_separate <- qtr_year_tbl %>%
+    separate(col = Quarter_Year,
+             into = c("year", "quarter", "day"),
+             sep = "-",
+             remove = FALSE)
+
+quarteryear_separate
+
+ggplot(data = quarteryear_separate, aes(x=year, y=Qtr_Sales, group = quarter, colour=quarter)) + 
+    geom_line()
+```
+
+# Monthly and Semester View of Total Sales
+
+```{r}
+#Monthly view of total sales by year
+Monthly_Sales_tbl <-wmart_data_tbl %>%
+    select(Date, Weekly_Sales) %>%
+    mutate(Date = dmy(Date)) %>%
+    mutate(Month_Year = floor_date(Date, "monthly")) %>%
+    group_by(Month_Year) %>%
+    summarise(Monthly_Sales = sum(Weekly_Sales)) %>%
+    arrange(desc(Monthly_Sales)) %>%
+    mutate(Monthly_Sales = as.numeric(Monthly_Sales) %>% scales::number(big.mark = ",")) %>%
+    ungroup()
+Monthly_Sales_tbl
+
+#separate Quarter column into different columns
+monthyear_separate <- Monthly_Sales_tbl %>%
+    separate(col = Month_Year,
+             into = c("Year", "Month", "Day"),
+             sep = "-",
+             remove = FALSE)
+
+monthyear_separate
+
+ggplot(data = monthyear_separate, aes(x=Month, y=Monthly_Sales, group = Year, colour=Year)) + 
+    geom_line()
+
+```
+      
+
+
+```{r}
+#Create a semester view of total sales
+Semester_sales_tbl <- wmart_data_tbl %>%
+    mutate(semester = semester(Date, with_year = TRUE)) %>%
+    select(semester, Weekly_Sales) %>%
+    group_by(semester) %>%
+    summarise(Semester_Sales = sum(Weekly_Sales)) %>%
+    arrange(desc(Semester_Sales)) %>%
+    mutate(Semester_Sales = as.numeric(Semester_Sales) %>% scales::number(big.mark = ",")) %>% 
+    ungroup()
+    
+Semester_sales_tbl
+
+
+```
+
+# Total Sales by Store in order of highest sales
+
+```{r}
+Sales_by_Store_tbl <-wmart_data_tbl %>%
+  select(Store, Weekly_Sales) %>%
+  group_by(Store) %>%
+  summarise(Total_Sales = sum(Weekly_Sales)) %>%
+  arrange(desc(Total_Sales)) %>%
+  mutate(Total_Sales = as.numeric(Total_Sales) %>% scales::number(big.mark = ",")) %>% 
+  ungroup()
+
+Sales_by_Store_tbl
+  
+```
+
+
+
+
